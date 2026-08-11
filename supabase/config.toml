@@ -1,0 +1,11 @@
+# OSIP v2 Supabase CLI configuration
+# No credentials belong in this file.
+
+project_id = "osip-v2"
+
+[api]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
