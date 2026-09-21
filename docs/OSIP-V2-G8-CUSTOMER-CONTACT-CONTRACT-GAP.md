@@ -1,7 +1,8 @@
 # OSIP V2 — G8 Customer Contact Contract Gap
 
-**Status:** BLOCKED AT APPROVAL GATE  
-**Detected:** 2026-09-21  
+**Status:** IMPLEMENTED / VERIFIED  
+**Decision:** Option A — dedicated customer contact entity  
+**Implemented:** 2026-09-22  
 **Scope:** A5 Customer → RFQ → RFQ Item
 
 ## Finding
@@ -17,7 +18,7 @@ The locked canonical schema has:
 
 `customers.primary_contact_id` references `public.users.id`.
 
-There is no canonical customer-contact entity containing external RFQ identity fields such as:
+A canonical `public.customer_contacts` entity has now been implemented containing external RFQ identity fields such as:
 
 - contact name
 - WhatsApp / phone
@@ -37,11 +38,11 @@ The application must not:
 4. silently discard required lead identity;
 5. mark an RFQ submitted without the required identity.
 
-## Safe options requiring Executive/CTO approval
+## Implemented canonical model
 
-### Option A — Add canonical customer contact model
+### Option A — Dedicated customer contact entity
 
-Introduce a dedicated contact entity and reference it from customers.
+The production schema now contains `customer_contacts`, linked to `customers`, and `rfqs.contact_id` is a required foreign key to the selected contact.
 
 Advantages:
 - clean domain separation;
@@ -49,7 +50,7 @@ Advantages:
 - preserves external contact identity;
 - supports future CRM/lead workflows.
 
-### Option B — Extend customers with contact fields
+### Option B — Not selected
 
 Add the required fields directly to `customers`.
 
@@ -59,11 +60,14 @@ Advantages:
 Trade-off:
 - one customer/contact model becomes less flexible.
 
-## Current decision
+## Decision and verification
 
-No production schema change is executed by this artifact.
+Option A was explicitly approved by the Executive and implemented through two migrations:
 
-A5 remains blocked until an approved canonical model is selected and implemented through a migration with runtime verification.
+- `osip_v2_customer_contacts_001`
+- `osip_v2_rfq_contact_link_001`
+
+Runtime verification confirmed the new table, RLS policies, role permissions, and required RFQ contact link. A5 is therefore unblocked.
 
 ## Already verified
 
