@@ -1,6 +1,6 @@
 # OSIP V2 — Live State Register
 
-**Verified:** 2026-09-21
+**Verified:** 2026-09-22
 
 ## Canonical infrastructure
 - Supabase project: OSIP-V2
@@ -23,10 +23,12 @@
 11. 20260917063251 osip_v2_rls_policies_001
 12. 20260917063340 osip_v2_rls_policy_dedup_001
 13. 20260918042459 osip_v2_fix_current_role_execute_001
+14. 20260921203637 osip_v2_customer_contacts_001
+15. 20260921203716 osip_v2_rfq_contact_link_001
 
 ## Security verification
-- RLS enabled on all 19 public base tables.
-- 76 CRUD policies exist for authenticated access.
+- RLS enabled on all 20 public base tables.
+- 80 CRUD policies exist for authenticated access.
 - Policies use private.osip_can().
 - Current role helper: private.current_osip_role().
 - Anonymous protected-table access was tested and blocked.
@@ -36,12 +38,17 @@
 ## Current advisors
 Security: one warning remains — leaked-password protection is disabled in Supabase Auth.
 
-Performance: 21 unused-index INFO findings. Do not delete these indexes solely because of the advisory; validate workload/query plans first.
+Performance: 23 unused-index INFO findings. Two new indexes are currently unused because the new contact workflow has not yet generated production workload. Do not delete these indexes solely because of the advisory; validate workload/query plans first.
 
 ## Repository drift
 The GitHub repository currently contains one historical foundation migration from August 2026 while the live project contains the 13 migrations listed above. This is a migration-repository synchronization gap, not evidence that the live database is empty.
 
 The old README statement that the remote public schema was intentionally empty is stale and must not be used as current-state truth.
 
+## Current G8 state
+A5 customer/contact/RFQ schema gate is implemented and verified. Option A was approved and is now canonical: `customer_contacts` stores external contact identity and `rfqs.contact_id` is required.
+
+The canonical repository now contains the V2 application skeleton and RFQ contact integration. The RFQ UI captures required identity, persists customer → contact → RFQ → RFQ item, and exposes WhatsApp only after persistence succeeds.
+
 ## Next gate
-G8 Application Integration is the next execution gate. Frontend source is not yet registered in the canonical repository. Legacy OSCARPART/SANY code remains reference material until adapted to the V2 contract.
+G8 A7 Internal RFQ Workspace is next. A8 security regression and A9 quotation vertical slice remain pending. The recovered legacy OSCARPART/SANY source remains reference material until adapted to the V2 contract.
