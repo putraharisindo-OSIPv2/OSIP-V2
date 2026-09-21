@@ -52,3 +52,27 @@ The canonical repository now contains the V2 application skeleton and RFQ contac
 
 ## Next gate
 G8 A7 Internal RFQ Workspace is next. A8 security regression and A9 quotation vertical slice remain pending. The recovered legacy OSCARPART/SANY source remains reference material until adapted to the V2 contract.
+
+
+## G8 acceleration evidence — 2026-09-22
+
+### A8 Security regression
+Verified for the affected commercial tables:
+- RLS enabled on customers, customer_contacts, rfqs, rfq_items, quotations, and quotation_items.
+- anon has no SELECT/INSERT table privilege on these six tables.
+- authenticated has table-level SELECT/INSERT access, with row authorization still enforced by RLS/RBAC policies.
+- Existing security-advisor warning remains limited to Supabase Auth leaked-password protection; this is an Auth configuration setting, not a schema/RLS regression.
+- Performance advisor reports unused indexes; these remain untouched pending workload evidence.
+
+### A9 Quotation vertical slice
+Canonical quotation schema was inspected before implementation:
+- quotation status default is DRAFT;
+- currency default is IDR;
+- quotation revision is supported;
+- quotation items reference both RFQ item and part;
+- quotation number + revision is unique.
+
+The repository now contains app/admin/quotations/page.tsx, which loads OPEN RFQs and creates a DRAFT quotation with quotation items and entered unit prices.
+
+### Remaining evidence gate
+Application build/runtime E2E still requires an actual authenticated browser/runtime execution. Source creation is not treated as runtime PASS.
