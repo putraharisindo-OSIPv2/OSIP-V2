@@ -17,10 +17,11 @@ This contract converts the locked database foundation into the first executable 
 3. Parts search uses `public.parts` and `public.brands`.
 4. Machine-aware results use `public.machines` and `public.part_machine_compatibility` when applicable.
 5. Customer identity is resolved/created in `public.customers`.
-6. RFQ header is created in `public.rfqs`.
-7. RFQ items are created in `public.rfq_items`.
-8. Only after persistence succeeds may the UI launch WhatsApp/email handoff.
-9. Internal users retrieve RFQs according to role permissions.
+6. External contact identity is resolved/created in `public.customer_contacts`.
+7. RFQ header is created in `public.rfqs` with the required `contact_id`.
+8. RFQ items are created in `public.rfq_items`.
+9. Only after persistence succeeds may the UI launch WhatsApp/email handoff.
+10. Internal users retrieve RFQs according to role permissions.
 
 ## Search contract
 Priority order:
@@ -38,7 +39,7 @@ Required application identity: name, company, WhatsApp, city, industry.
 Optional: email.
 RFQ context: product/model, requirement, quantity, notes.
 
-Each persisted RFQ must have a customer identity and at least one RFQ item before being treated as submitted.
+Each persisted RFQ must have a customer identity, an external contact identity through `rfqs.contact_id`, and at least one RFQ item before being treated as submitted.
 
 ## Acceptance criteria
 - Login establishes a valid Supabase Auth session.
@@ -51,7 +52,7 @@ Each persisted RFQ must have a customer identity and at least one RFQ item befor
 - No service-role credential appears in client bundle/source.
 
 ## Explicit non-goals for this slice
-- Do not add new public tables for convenience.
+- Do not add public tables outside the approved customer-contact model for convenience.
 - Do not revive `rfq_sessions`, `leads`, `settings`, `activity_feed` or legacy sequence tables.
 - Do not implement automatic inventory decrement.
 - Do not alter locked schema without a new evidence-backed change request.
@@ -62,7 +63,7 @@ A1 application skeleton
 A2 Supabase client/server layer
 A3 Auth + role context
 A4 Parts search
-A5 Customer/RFQ/RFQ-item transaction
+A5 Customer/Contact/RFQ/RFQ-item transaction
 A6 WhatsApp handoff
 A7 Internal RFQ workspace
 A8 E2E security regression
