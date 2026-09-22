@@ -119,3 +119,11 @@ The recovered legacy OSCARPART/SANY source remains reference material until adap
 - CI workflow source is present at `.github/workflows/ci.yml`; repository has no `package-lock.json`, so the workflow intentionally uses `npm install` rather than `npm ci`.
 - GitHub workflow status is not yet observable for the current commits from the available connector, so build PASS is not claimed.
 - Browser/external HTTP E2E is not observable in the current execution environment, so RELEASE remains gated on that evidence plus the remaining Auth hardening action.
+
+
+## Release-gate verification refresh — 2026-09-22 17:03 WIB
+- Rechecked commit `5c007d5d42a15cae2e9a6d8fe565706a0618b577`: GitHub connector exposes no workflow run and no commit status for this commit, so CI PASS remains unverified rather than inferred.
+- Supabase project remains ACTIVE_HEALTHY on PostgreSQL 17.6; public schema has 20 tables and all 20 have RLS enabled.
+- Commercial RPC privilege regression remains PASS: four atomic commercial RPCs are SECURITY INVOKER, anon EXECUTE=false, authenticated EXECUTE=true.
+- Performance Advisor currently reports 19 INFO unused-index findings only; no performance migration applied because removing indexes without workload evidence is unsafe.
+- Release gate remains limited to external/browser E2E evidence, CI run evidence, and optional Auth leaked-password protection hardening.
