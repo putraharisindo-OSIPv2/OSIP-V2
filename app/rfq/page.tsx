@@ -10,12 +10,6 @@ function normalizeWhatsApp(value: string) {
   return digits;
 }
 
-function buildRfqNumber() {
-  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
-  return `RFQ-${stamp}-${suffix}`;
-}
-
 export default function RfqPage() {
   const [company, setCompany] = useState("");
   const [name, setName] = useState("");
@@ -30,7 +24,7 @@ export default function RfqPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setStatus("Saving RFQ…");
+    setStatus("Saving RFQ securely…");
     setWaUrl("");
 
     const s = createBrowserClient();
@@ -40,68 +34,31 @@ export default function RfqPage() {
       return;
     }
 
-    const customer = await s
-      .from("customers")
-      .insert({ company_name: company.trim() })
-      .select("id")
-      .single();
-
-    if (customer.error) {
-      setStatus(customer.error.message);
-      return;
-    }
-
     const normalizedWa = normalizeWhatsApp(whatsapp);
-    const contact = await s
-      .from("customer_contacts")
-      .insert({
-        customer_id: customer.data.id,
-        full_name: name.trim(),
-        whatsapp: normalizedWa,
-        city: city.trim(),
-        industry: industry.trim(),
-        email: email.trim() || null,
-      })
-      .select("id")
-      .single();
-
-    if (contact.error) {
-      setStatus(contact.error.message);
+    if (normalizedWa.length < 10 || !partId.trim() || Number(qty) <= 0) {
+      setStatus("Please check WhatsApp, Part ID and quantity.");
       return;
     }
 
-    const rfq = await s
-      .from("rfqs")
-      .insert({
-        customer_id: customer.data.id,
-        contact_id: contact.data.id,
-        rfq_number: buildRfqNumber(),
-        status: "OPEN",
-        requested_at: new Date().toISOString(),
-      })
-      .select("id,rfq_number")
-      .single();
+    const { data, error } = await s.rpc("create_rfq_atomic", {
+      p_company_name: company.trim(),
+      p_full_name: name.trim(),
+      p_whatsapp: normalizedWa,
+      p_city: city.trim(),
+      p_industry: industry.trim(),
+      p_email: email.trim() || null,
+      p_part_id: partId.trim(),
+      p_quantity: Number(qty),
+    });
 
-    if (rfq.error) {
-      setStatus(rfq.error.message);
+    if (error) {
+      setStatus(error.message);
       return;
     }
 
-    const item = await s
-      .from("rfq_items")
-      .insert({
-        rfq_id: rfq.data.id,
-        part_id: partId.trim(),
-        qty_requested: Number(qty),
-      });
-
-    if (item.error) {
-      setStatus(item.error.message);
-      return;
-    }
-
+    const result = data as { rfq_number: string };
     const waMessage = [
-      `RFQ ${rfq.data.rfq_number}`,
+      `RFQ ${result.rfq_number}`,
       `Perusahaan: ${company.trim()}`,
       `PIC: ${name.trim()}`,
       `WhatsApp: ${whatsapp.trim()}`,
@@ -112,7 +69,7 @@ export default function RfqPage() {
     ].join("\n");
 
     setWaUrl(`https://wa.me/${normalizedWa}?text=${encodeURIComponent(waMessage)}`);
-    setStatus(`RFQ ${rfq.data.rfq_number} saved successfully.`);
+    setStatus(`RFQ ${result.rfq_number} saved successfully.`);
   }
 
   return (
@@ -120,6 +77,7 @@ export default function RfqPage() {
       <section className="card">
         <span className="eyebrow">RFQ</span>
         <h1>Request a Quote</h1>
+        <p className="muted">Your RFQ is saved atomically before WhatsApp handoff.</p>
         <form className="form" onSubmit={submit}>
           <label>Company<input value={company} onChange={e => setCompany(e.target.value)} required /></label>
           <label>Contact name<input value={name} onChange={e => setName(e.target.value)} required /></label>
@@ -132,11 +90,7 @@ export default function RfqPage() {
           <button className="button primary">Submit RFQ</button>
         </form>
         {status && <p className="muted">{status}</p>}
-        {waUrl && (
-          <a className="button" href={waUrl} target="_blank" rel="noreferrer">
-            Continue to WhatsApp
-          </a>
-        )}
+        {waUrl && <a className="button" href={waUrl} target="_blank" rel="noreferrer">Continue to WhatsApp</a>}
       </section>
     </main>
   );
