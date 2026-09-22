@@ -62,7 +62,7 @@ export default function RfqPage() {
       try {
         const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
         if (!base) throw new Error("Public RFQ service is not configured.");
-        const response = await fetch(base + "/functions/v1/osip-public-rfq", {
+        const response = await fetch(base + "/functions/v1/osip-public-rfq-v2", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
