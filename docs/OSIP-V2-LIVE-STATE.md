@@ -102,3 +102,11 @@ A disposable authenticated-admin transaction exercised RFQ → Quotation → PO 
 5. The public RFQ edge function is active and delegates to the atomic RFQ RPC; no anonymous table INSERT grants were added.
 
 The recovered legacy OSCARPART/SANY source remains reference material until adapted to the V2 contract.
+
+## Latest acceleration evidence — 2026-09-22
+- Public RFQ Edge Function: `osip-public-rfq-v2`, ACTIVE v1, JWT verification disabled by design for the public boundary.
+- Public RFQ frontend commit: `b21928748052cac3ed7b9fc2d74bf117ea2012a4`.
+- CI build workflow commit: `c6b4edd3e218ca06e4080720b9a9a772b7a9a772b7a9a772`.
+- Live-state documentation commit: `42dc314acb8768fd90fce4c7569c182ce07637a5`.
+- Supabase verification confirms all four commercial RPCs are SECURITY INVOKER, denied to anon, and executable by authenticated users.
+- External HTTP/browser verification could not be completed from the current execution environment; therefore G9/G11 are not falsely marked closed.
