@@ -5,8 +5,11 @@ import { createBrowserClient } from "@/lib/supabase/client";
 
 type Rfq = {
   id: string; rfq_number: string; customer_id: string;
-  customers: { company_name: string } | null;
-  rfq_items: Array<{ id: string; part_id: string; qty_requested: number; description: string | null; parts: { part_number: string; description: string | null } | null; }>;
+  customers: Array<{ company_name: string }> | null;
+  rfq_items: Array<{
+    id: string; part_id: string; qty_requested: number; description: string | null;
+    parts: Array<{ part_number: string; description: string | null }> | null;
+  }>;
 };
 
 export default function QuotationsPage() {
@@ -63,14 +66,14 @@ export default function QuotationsPage() {
           {rfqs.map(rfq => (
             <article className="card" key={rfq.id}>
               <div className="split">
-                <div><strong>{rfq.rfq_number}</strong><p className="muted">{rfq.customers?.company_name ?? "Customer unavailable"}</p></div>
+                <div><strong>{rfq.rfq_number}</strong><p className="muted">{rfq.customers?.[0]?.company_name ?? "Customer unavailable"}</p></div>
                 <button className="button" onClick={() => setSelected(rfq)}>Prepare quotation</button>
               </div>
               {rfq.rfq_items.map(item => (
                 <p key={item.id}>
-                  <strong>{item.parts?.part_number ?? "Part"}</strong> · Qty {item.qty_requested}
+                  <strong>{item.parts?.[0]?.part_number ?? "Part"}</strong> · Qty {item.qty_requested}
                   {selected?.id === rfq.id && (
-                    <input aria-label={`Unit price for ${item.parts?.part_number ?? item.id}`} type="number" min="1" placeholder="Unit price IDR"
+                    <input aria-label={`Unit price for ${item.parts?.[0]?.part_number ?? item.id}`} type="number" min="1" placeholder="Unit price IDR"
                       value={prices[item.id] ?? ""} onChange={e => setPrices({...prices, [item.id]: e.target.value})}/>
                   )}
                 </p>
