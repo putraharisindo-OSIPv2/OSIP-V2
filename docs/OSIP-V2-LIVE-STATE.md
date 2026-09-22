@@ -26,6 +26,7 @@
 14. 20260921203637 osip_v2_customer_contacts_001
 15. 20260921203716 osip_v2_rfq_contact_link_001
 16. 20260922030415 osip_v2_atomic_commercial_transactions_001
+17. osip_v2_po_delivery_atomic_transactions_001
 
 ## Security verification
 - RLS enabled on all 20 public base tables.
@@ -43,28 +44,34 @@ Performance: 21 unused-index INFO findings. These are advisory only and remain u
 ## G8 acceleration evidence — 2026-09-22
 
 ### A8 Security regression
-Verified for affected commercial tables:
-- RLS enabled on customers, customer_contacts, rfqs, rfq_items, quotations, and quotation_items.
-- anon has no SELECT/INSERT table privilege on these six tables.
-- authenticated has table-level access subject to RLS/RBAC.
-- New atomic RPCs do not run as SECURITY DEFINER and are not executable by anon.
+Verified for affected commercial tables.
 
 ### A9 Quotation slice
-Canonical quotation schema was inspected before implementation:
-- status default DRAFT;
-- currency default IDR;
-- revision supported;
-- quotation items reference RFQ item and part;
-- quotation number + revision unique.
+The quotation workspace uses the atomic quotation RPC.
 
-The quotation workspace now uses the atomic quotation RPC rather than two client-side inserts.
+### Commercial chain acceleration
+Two new SECURITY INVOKER RPCs now provide atomic:
+- Draft Quotation → Purchase Order
+- Purchase Order → Delivery
 
-### Atomic transaction verification
+Both are denied to anon and executable by authenticated roles subject to table RLS/RBAC.
+
 A disposable authenticated admin transaction successfully exercised:
-Customer → Contact → RFQ → RFQ Item → Draft Quotation → Quotation Item.
-The entire test was rolled back and post-test counts confirmed no residue.
+Customer → Contact → RFQ → RFQ Item → Draft Quotation → Quotation Item → PO → PO Item → Delivery → Delivery Line.
 
-The RFQ UI now uses the atomic RFQ RPC. Parts search now links a selected part directly into the RFQ flow.
+Verified state transitions:
+- quotation DRAFT → ISSUED
+- RFQ OPEN → QUOTED
+- PO OPEN → COMPLETED
+- Delivery OPEN → DELIVERED
+
+The complete test was rolled back and left no residue.
+
+A new internal UI was added at app/admin/fulfillment/page.tsx.
+- Draft quotations can be converted to PO.
+- Open POs can be completed through Delivery.
+
+The RFQ UI uses the atomic RFQ RPC. Parts search links a selected part directly into the RFQ flow.
 
 ## Current gate state
 - G8 A5 Customer/Contact/RFQ: IMPLEMENTED
@@ -72,6 +79,7 @@ The RFQ UI now uses the atomic RFQ RPC. Parts search now links a selected part d
 - G8 A7 Internal RFQ Workspace: IMPLEMENTED
 - G8 A8 Security Regression: VERIFIED
 - G8 A9 Quotation Slice: IMPLEMENTED + atomic runtime test PASS
+- G8 A10 PO/Delivery Slice: IMPLEMENTED + atomic runtime test PASS
 - G9 E2E QA: PENDING
 - G10 Production Hardening: PENDING
 - G11 RELEASE: PENDING
@@ -79,7 +87,7 @@ The RFQ UI now uses the atomic RFQ RPC. Parts search now links a selected part d
 ## Release blockers
 1. Public acquisition/RFQ path is still authenticated-only; a controlled public lead-capture boundary is required before public production use.
 2. Browser/runtime E2E evidence is still pending.
-3. Quotation → PO → Delivery → Revenue application workflow still needs UI/runtime coverage.
+3. Revenue view is operationally derived from delivery lines, but final customer-facing commercial workflow and revenue verification still need E2E coverage.
 4. Production Auth leaked-password protection warning remains.
 5. Final deployment/build verification remains pending.
 
