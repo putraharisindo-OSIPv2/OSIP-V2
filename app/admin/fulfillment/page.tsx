@@ -3,7 +3,8 @@
 import { useEffect,useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 
-type Quotation={id:string;quotation_number:string;rfq_id:string;status:string;currency:string;quotation_items:Array<{id:string;quantity:number;unit_price:number;description:string|null;parts:{part_number:string}|null}>};
+type QuotationItem={id:string;quantity:number;unit_price:number;description:string|null;parts:Array<{part_number:string}>|null};
+type Quotation={id:string;quotation_number:string;rfq_id:string;status:string;currency:string;quotation_items:QuotationItem[]};
 type Po={id:string;po_number:string;status:string;purchase_orders?:never};
 
 export default function FulfillmentPage(){
@@ -33,7 +34,7 @@ export default function FulfillmentPage(){
   setStatus(`Delivery ${(data as {delivery_number:string}).delivery_number} completed.`); await load();
  }
  return <main className="shell"><section className="card"><span className="eyebrow">FULFILLMENT</span><h1>PO & Delivery Workspace</h1>{status&&<p className="muted">{status}</p>}
- <div className="stack"><h2>Draft quotations</h2>{quotations.length===0?<p className="muted">No draft quotations.</p>:quotations.map(q=><article className="card" key={q.id}><strong>{q.quotation_number}</strong>{q.quotation_items.map(i=><p key={i.id}>{i.parts?.part_number??"Part"} · Qty {i.quantity} · IDR {Number(i.unit_price).toLocaleString("id-ID")}</p>)}<button className="button primary" onClick={()=>createPo(q.id)}>Create PO</button></article>)}</div>
+ <div className="stack"><h2>Draft quotations</h2>{quotations.length===0?<p className="muted">No draft quotations.</p>:quotations.map(q=><article className="card" key={q.id}><strong>{q.quotation_number}</strong>{q.quotation_items.map(i=><p key={i.id}>{i.parts?.[0]?.part_number??"Part"} · Qty {i.quantity} · IDR {Number(i.unit_price).toLocaleString("id-ID")}</p>)}<button className="button primary" onClick={()=>createPo(q.id)}>Create PO</button></article>)}</div>
  <div className="stack"><h2>Open purchase orders</h2>{pos.length===0?<p className="muted">No open POs.</p>:pos.map(po=><article className="card" key={po.id}><strong>{po.po_number}</strong><button className="button" onClick={()=>deliver(po.id)}>Complete Delivery</button></article>)}</div>
  </section></main>
 }
