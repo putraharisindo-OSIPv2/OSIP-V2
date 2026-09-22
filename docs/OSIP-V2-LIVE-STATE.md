@@ -110,3 +110,12 @@ The recovered legacy OSCARPART/SANY source remains reference material until adap
 - Live-state documentation commit: `42dc314acb8768fd90fce4c7569c182ce07637a5`.
 - Supabase verification confirms all four commercial RPCs are SECURITY INVOKER, denied to anon, and executable by authenticated users.
 - External HTTP/browser verification could not be completed from the current execution environment; therefore G9/G11 are not falsely marked closed.
+
+
+## Final hardening checkpoint — 2026-09-22
+- Security Advisor rechecked after latest changes: only one external WARN remains, `auth_leaked_password_protection` (Supabase Auth setting). No new RLS/security finding was introduced.
+- Commercial RPC privilege regression rechecked: all four atomic commercial RPCs remain SECURITY INVOKER; anon EXECUTE=false; authenticated EXECUTE=true.
+- Public RFQ function `osip-public-rfq-v2` is ACTIVE and its deployed source delegates persistence to `create_rfq_atomic`.
+- CI workflow source is present at `.github/workflows/ci.yml`; repository has no `package-lock.json`, so the workflow intentionally uses `npm install` rather than `npm ci`.
+- GitHub workflow status is not yet observable for the current commits from the available connector, so build PASS is not claimed.
+- Browser/external HTTP E2E is not observable in the current execution environment, so RELEASE remains gated on that evidence plus the remaining Auth hardening action.
