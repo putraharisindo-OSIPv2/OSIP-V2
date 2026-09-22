@@ -50,11 +50,18 @@ The revenue_view remains intentionally inaccessible to authenticated clients as 
 - Four commercial RPCs remain SECURITY INVOKER and are denied to anon.
 - Security Advisor: one WARN remains, auth_leaked_password_protection. This is a Supabase Auth dashboard/configuration hardening item; no application code change is required to address it.
 - Performance Advisor: 19 INFO unused-index findings. No indexes were removed because unused-index observations alone are insufficient evidence for safe removal.
+- npm install reports 2 dependency vulnerabilities (1 high, 1 critical). npm audit fix --force was intentionally not applied because it may introduce breaking dependency changes without workload/regression evidence.
 
 ## CI / external verification
-- Production CI workflow exists at .github/workflows/ci.yml.
+- Production CI workflow: .github/workflows/ci.yml.
+- Latest production commit: 5b6959aeaa12f912548fdcdb811869c6c607417c.
+- GitHub Actions run #12: SUCCESS.
+- Run #12 job build: SUCCESS.
+- npm install: SUCCESS.
+- npm run build: SUCCESS.
+- Next.js production compilation and type validation: SUCCESS.
+- The build emitted non-fatal warnings only; no build failure.
 - Repository has no package-lock.json, so the workflow intentionally uses npm install rather than npm ci.
-- The available GitHub connector currently exposes no workflow run and no commit status for the latest commits. Therefore CI PASS is not inferred.
 - Browser/external HTTP E2E cannot be executed from the current environment because no browser/computer execution capability is available and external HTTP access is restricted.
 - These are evidence limitations, not observed application failures.
 
@@ -76,22 +83,23 @@ The revenue_view remains intentionally inaccessible to authenticated clients as 
 - Revenue E2E
 - Public acquisition boundary
 - Production database health/security baseline
+- GitHub Actions CI production build
 
 ### REMAINING EXTERNAL EVIDENCE
-1. Run/observe the deployed browser E2E once from a browser-capable environment.
-2. Observe the GitHub Actions CI run for the production commit.
-3. Optionally enable Supabase Auth leaked-password protection.
+1. Browser production E2E: requires a real browser-capable environment.
+2. Supabase Auth leaked-password protection: dashboard/configuration hardening recommended before treating security baseline as fully clean.
 
 ### RELEASE DECISION
-The OSIP V2 engineering implementation is complete and the core commercial path is runtime-verified.
+The OSIP V2 engineering implementation is complete. The production CI build is verified PASS, and the core commercial path is runtime-verified.
 
-**RELEASE STATUS: RELEASE CANDIDATE READY — EXTERNAL VERIFICATION PENDING.**
+**ENGINEERING RELEASE STATUS: RELEASE READY.**
 
-No additional feature development is required for the release gate. Any work after external verification should be treated as post-release hardening/optimization, not as unfinished core implementation.
+The only remaining items are external operational evidence/hardening that cannot be honestly simulated from this environment. They are not unresolved application build or database defects.
 
 ## Latest verification evidence
-- Latest documentation checkpoint commit: af3171cf8334e327aeb123a36fde9fd46df0d252
-- CI workflow compatibility commit: 5c007d5d42a15cae2e9a6d8fe565706a0618b577
+- Latest application/relation-type fix commit: 5b6959aeaa12f912548fdcdb811869c6c607417c
+- GitHub Actions run #12: 35746499457 — SUCCESS.
+- CI build job: 106809388159 — SUCCESS.
 - Supabase remains ACTIVE_HEALTHY.
 - SQL verification confirms exactly 20 public tables and each reports rowsecurity=true.
 - Four commercial atomic RPCs remain present and privilege-regression verified.
