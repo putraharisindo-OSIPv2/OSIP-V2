@@ -73,6 +73,16 @@ A new internal UI was added at app/admin/fulfillment/page.tsx.
 
 The RFQ UI uses the atomic RFQ RPC. Parts search links a selected part directly into the RFQ flow.
 
+## G8 public acquisition acceleration — 2026-09-22
+
+A controlled public RFQ boundary is now ACTIVE as Supabase Edge Function `osip-public-rfq-v2` (JWT verification intentionally disabled because the function is the public unauthenticated boundary). It performs strict input validation, honeypot filtering, in-memory per-IP throttling, and delegates persistence to the existing atomic `create_rfq_atomic` RPC. No anonymous direct table write access was added.
+
+The RFQ page now supports both authenticated atomic RPC submission and unauthenticated public lead capture, followed by WhatsApp handoff.
+
+## Revenue E2E verification — 2026-09-22
+
+A disposable authenticated-admin transaction exercised RFQ → Quotation → PO → Delivery and calculated operational revenue directly from delivery lines at IDR 250,000 for 2 × IDR 125,000. Quotation/PO/Delivery state transitions passed and the transaction was rolled back. No test residue remains. The `revenue_view` remains intentionally inaccessible to authenticated clients as a least-privilege internal view.
+
 ## Current gate state
 - G8 A5 Customer/Contact/RFQ: IMPLEMENTED
 - G8 A6 WhatsApp: IMPLEMENTED
@@ -80,15 +90,15 @@ The RFQ UI uses the atomic RFQ RPC. Parts search links a selected part directly 
 - G8 A8 Security Regression: VERIFIED
 - G8 A9 Quotation Slice: IMPLEMENTED + atomic runtime test PASS
 - G8 A10 PO/Delivery Slice: IMPLEMENTED + atomic runtime test PASS
-- G9 E2E QA: PENDING
-- G10 Production Hardening: PENDING
+- G9 E2E QA: PENDING — database/runtime E2E is substantially covered; browser E2E evidence remains pending
+- G10 Production Hardening: IN PROGRESS
 - G11 RELEASE: PENDING
 
 ## Release blockers
-1. Public acquisition/RFQ path is still authenticated-only; a controlled public lead-capture boundary is required before public production use.
-2. Browser/runtime E2E evidence is still pending.
-3. Revenue view is operationally derived from delivery lines, but final customer-facing commercial workflow and revenue verification still need E2E coverage.
-4. Production Auth leaked-password protection warning remains.
-5. Final deployment/build verification remains pending.
+1. Browser/runtime E2E evidence is still pending for the deployed Next.js UI.
+2. Supabase Auth leaked-password protection warning remains.
+3. Final production deployment/build verification remains pending.
+4. Public edge-function throttling is intentionally lightweight/in-memory; stronger provider-level rate limiting/CAPTCHA can be added before high-volume acquisition.
+5. The public RFQ edge function is active and delegates to the atomic RFQ RPC; no anonymous table INSERT grants were added.
 
 The recovered legacy OSCARPART/SANY source remains reference material until adapted to the V2 contract.
