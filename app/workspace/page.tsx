@@ -33,7 +33,7 @@ export default function WorkspacePage() {
   const [price, setPrice] = useState<Record<string, string>>({});
   const [quote, setQuote] = useState<Record<string, Quotation>>({});
   const [po, setPo] = useState<Record<string, PurchaseOrder>>({});
-  const [delivery, setDelivery] = useState<Record<string, Delivery>>([]);
+  const [delivery, setDelivery] = useState<Record<string, Delivery>>({});
 
   async function load() {
     const s = createBrowserClient();
