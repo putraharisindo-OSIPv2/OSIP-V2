@@ -96,7 +96,7 @@ export default function WorkspacePage() {
     });
     setRfqs(rows);
 
-    const rfqIds = rows.map(r => r.id);
+    const rfqIds = Array.from(new Set(rows.map(r => r.id)));
     if (!rfqIds.length) return;
 
     const { data: qData } = await s
@@ -110,17 +110,21 @@ export default function WorkspacePage() {
       if (!qMap[q.rfq_id]) qMap[q.rfq_id] = q;
     });
 
-    const { data: soData } = await s
-      .from("purchase_orders")
-      .select("id,quotation_id,rfq_id,po_number,sales_order_number,customer_po_number,status")
-      .in("customer_id", Array.from(new Set(rows.map(r => r.customer_id).filter(Boolean))));
+    const quoteIds = (qData || []).map((q: any) => q.id);
+    const { data: soData } = quoteIds.length
+      ? await s
+          .from("purchase_orders")
+          .select("id,quotation_id,po_number,sales_order_number,customer_po_number,status")
+          .in("quotation_id", quoteIds)
+          .order("created_at", { ascending: false })
+      : { data: [] as any[] };
 
     const qById: Record<string, string> = {};
     (qData || []).forEach((q: any) => { qById[q.id] = q.rfq_id; });
 
     const soMap: Record<string, SalesOrder> = {};
     (soData || []).forEach((p: any) => {
-      const rfqId = p.rfq_id || qById[p.quotation_id];
+      const rfqId = qById[p.quotation_id];
       if (rfqId && !soMap[rfqId]) {
         soMap[rfqId] = {
           id: p.id,
@@ -133,7 +137,10 @@ export default function WorkspacePage() {
 
     const soIds = Object.values(soMap).map(x => x.id);
     const { data: dData } = soIds.length
-      ? await s.from("deliveries").select("id,purchase_order_id,delivery_number,status").in("purchase_order_id", soIds)
+      ? await s
+          .from("deliveries")
+          .select("id,purchase_order_id,delivery_number,status")
+          .in("purchase_order_id", soIds)
       : { data: [] as any[] };
 
     const dMap: Record<string, Delivery> = {};
@@ -168,7 +175,7 @@ export default function WorkspacePage() {
       return;
     }
     setBusy("");
-    setMessage(`Quotation ${data.quotation_number} dibuat sebagai DRAFT. Setelah dikirim ke customer, tunggu Customer PO.`);
+    setMessage(`Quotation ${data.quotation_number} dibuat dan berstatus ISSUED. Secara bisnis, quotation ini dikirim ke customer dan kemudian menunggu Customer PO.`);
     await load();
   }
 
@@ -177,6 +184,10 @@ export default function WorkspacePage() {
     const poNumber = customerPo[r.id]?.trim();
     if (!q) {
       setMessage("Quotation belum tersedia.");
+      return;
+    }
+    if (q.status !== "ISSUED") {
+      setMessage("Quotation harus berstatus ISSUED sebelum Customer PO dicatat.");
       return;
     }
     if (!poNumber) {
@@ -262,7 +273,7 @@ export default function WorkspacePage() {
                       onChange={e => setPrice(v => ({ ...v, [r.item_id]: e.target.value }))}
                     />
                     <button className="button primary" disabled={busy === r.item_id} onClick={() => createQuotation(r)}>
-                      {busy === r.item_id ? "Working…" : "Create Quotation"}
+                      {busy === r.item_id ? "Working…" : "Create & Issue Quotation"}
                     </button>
                   </div>
                 )}
@@ -270,8 +281,8 @@ export default function WorkspacePage() {
                 {q && (
                   <>
                     <span>Quotation: <strong>{q.quotation_number}</strong> — {q.status}</span>
-                    {q.status === "DRAFT" && (
-                      <span className="muted">Quotation draft dibuat. Tahap berikutnya: kirim quotation ke customer dan tunggu Customer PO.</span>
+                    {q.status === "ISSUED" && !so && (
+                      <span className="muted">Quotation sudah dibuat/issued. Sekarang tunggu Customer PO dari customer.</span>
                     )}
                   </>
                 )}
@@ -295,7 +306,7 @@ export default function WorkspacePage() {
                   <>
                     <span>Customer PO: <strong>{so.customer_po_number || "LEGACY TEST — no customer PO recorded"}</strong></span>
                     <span>Sales Order: <strong>{so.sales_order_number}</strong> — {so.status}</span>
-                    {legacy && <span className="muted">This record belongs to the previous technical workflow test. It is not evidence of a real customer PO.</span>}
+                    {legacy && <span className="muted">Record ini berasal dari technical test lama. Ini bukan bukti adanya Customer PO nyata.</span>}
                   </>
                 )}
 
