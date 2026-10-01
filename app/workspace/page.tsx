@@ -8,32 +8,36 @@ type Rfq = {
   rfq_number: string;
   status: string;
   requested_at: string;
-  customer_id: string;
   customer_name: string;
   contact_name: string;
   whatsapp: string;
   city: string;
   industry: string;
   item_id: string;
-  part_id: string;
   part_number: string;
   description: string | null;
   quantity: number;
 };
 
-type Quotation = { id: string; quotation_number: string };
-type PurchaseOrder = { id: string; po_number: string };
-type Delivery = { id: string; delivery_number: string };
+type Quote = { id: string; quotation_number: string; status: string };
+type SalesOrder = {
+  id: string;
+  sales_order_number: string | null;
+  customer_po_number: string | null;
+  status: string;
+};
+type Delivery = { id: string; delivery_number: string; status: string };
 
 export default function WorkspacePage() {
   const [rfqs, setRfqs] = useState<Rfq[]>([]);
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
+  const [salesOrders, setSalesOrders] = useState<Record<string, SalesOrder>>({});
+  const [deliveries, setDeliveries] = useState<Record<string, Delivery>>({});
+  const [price, setPrice] = useState<Record<string, string>>({});
+  const [customerPo, setCustomerPo] = useState<Record<string, string>>({});
   const [role, setRole] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
-  const [price, setPrice] = useState<Record<string, string>>({});
-  const [quote, setQuote] = useState<Record<string, Quotation>>({});
-  const [po, setPo] = useState<Record<string, PurchaseOrder>>({});
-  const [delivery, setDelivery] = useState<Record<string, Delivery>>({});
 
   async function load() {
     const s = createBrowserClient();
@@ -52,15 +56,15 @@ export default function WorkspacePage() {
     const roleName = (me as any)?.roles?.name || "";
     setRole(roleName);
 
-    if (!["admin", "sales", "procurement"].includes(roleName)) {
-      setMessage("This workspace is restricted to authorized commercial roles.");
+    if (!["admin", "sales"].includes(roleName)) {
+      setMessage("This sales workspace is restricted to admin and sales roles.");
       return;
     }
 
     const { data, error } = await s
       .from("rfqs")
       .select(
-        "id,rfq_number,status,requested_at,customer_id,customers(company_name),customer_contacts(full_name,whatsapp,city,industry),rfq_items(id,part_id,description,qty_requested,parts(part_number))"
+        "id,rfq_number,status,requested_at,customers(company_name),customer_contacts(full_name,whatsapp,city,industry),rfq_items(id,part_id,description,qty_requested,parts(part_number))"
       )
       .order("requested_at", { ascending: false })
       .limit(50);
@@ -79,21 +83,68 @@ export default function WorkspacePage() {
         rfq_number: r.rfq_number,
         status: r.status,
         requested_at: r.requested_at,
-        customer_id: r.customer_id,
         customer_name: customer?.company_name || "Unknown customer",
         contact_name: contact?.full_name || "-",
         whatsapp: contact?.whatsapp || "-",
         city: contact?.city || "-",
         industry: contact?.industry || "-",
         item_id: item.id,
-        part_id: item.part_id,
         part_number: item.parts?.part_number || "-",
         description: item.description,
         quantity: Number(item.qty_requested),
       }));
     });
-
     setRfqs(rows);
+
+    const rfqIds = rows.map(r => r.id);
+    if (!rfqIds.length) return;
+
+    const { data: qData } = await s
+      .from("quotations")
+      .select("id,rfq_id,quotation_number,status")
+      .in("rfq_id", rfqIds)
+      .order("created_at", { ascending: false });
+
+    const qMap: Record<string, Quote> = {};
+    (qData || []).forEach((q: any) => {
+      if (!qMap[q.rfq_id]) qMap[q.rfq_id] = q;
+    });
+
+    const { data: soData } = await s
+      .from("purchase_orders")
+      .select("id,quotation_id,rfq_id,po_number,sales_order_number,customer_po_number,status")
+      .in("customer_id", Array.from(new Set(rows.map(r => r.customer_id).filter(Boolean))));
+
+    const qById: Record<string, string> = {};
+    (qData || []).forEach((q: any) => { qById[q.id] = q.rfq_id; });
+
+    const soMap: Record<string, SalesOrder> = {};
+    (soData || []).forEach((p: any) => {
+      const rfqId = p.rfq_id || qById[p.quotation_id];
+      if (rfqId && !soMap[rfqId]) {
+        soMap[rfqId] = {
+          id: p.id,
+          sales_order_number: p.sales_order_number || p.po_number,
+          customer_po_number: p.customer_po_number,
+          status: p.status,
+        };
+      }
+    });
+
+    const soIds = Object.values(soMap).map(x => x.id);
+    const { data: dData } = soIds.length
+      ? await s.from("deliveries").select("id,purchase_order_id,delivery_number,status").in("purchase_order_id", soIds)
+      : { data: [] as any[] };
+
+    const dMap: Record<string, Delivery> = {};
+    (dData || []).forEach((d: any) => {
+      const rfqId = Object.entries(soMap).find(([, so]) => so.id === d.purchase_order_id)?.[0];
+      if (rfqId) dMap[rfqId] = d;
+    });
+
+    setQuotes(qMap);
+    setSalesOrders(soMap);
+    setDeliveries(dMap);
   }
 
   useEffect(() => { load(); }, []);
@@ -101,7 +152,7 @@ export default function WorkspacePage() {
   async function createQuotation(r: Rfq) {
     const unitPrice = Number(price[r.item_id]);
     if (!unitPrice || unitPrice <= 0) {
-      setMessage("Enter a positive selling price first.");
+      setMessage("Masukkan selling price yang valid terlebih dahulu.");
       return;
     }
     setBusy(r.item_id);
@@ -111,54 +162,64 @@ export default function WorkspacePage() {
       p_rfq_id: r.id,
       p_items: [{ rfq_item_id: r.item_id, unit_price: unitPrice }],
     });
-    setBusy("");
     if (error) {
+      setBusy("");
       setMessage(error.message);
       return;
     }
-    setQuote(q => ({ ...q, [r.item_id]: data }));
-    setMessage(`Quotation ${data.quotation_number} created.`);
+    setBusy("");
+    setMessage(`Quotation ${data.quotation_number} dibuat sebagai DRAFT. Setelah dikirim ke customer, tunggu Customer PO.`);
+    await load();
   }
 
-  async function createPo(r: Rfq) {
-    const q = quote[r.item_id];
-    if (!q) return;
-    setBusy(r.item_id);
+  async function createSalesOrder(r: Rfq) {
+    const q = quotes[r.id];
+    const poNumber = customerPo[r.id]?.trim();
+    if (!q) {
+      setMessage("Quotation belum tersedia.");
+      return;
+    }
+    if (!poNumber) {
+      setMessage("Masukkan nomor PO customer terlebih dahulu.");
+      return;
+    }
+    setBusy(r.id);
     setMessage("");
     const s = createBrowserClient();
     const { data, error } = await s.rpc("create_po_from_quotation_atomic", {
       p_quotation_id: q.id,
+      p_customer_po_number: poNumber,
     });
-    setBusy("");
     if (error) {
+      setBusy("");
       setMessage(error.message);
       return;
     }
-    setPo(p => ({ ...p, [r.item_id]: data }));
-    setMessage(`PO ${data.po_number} created.`);
+    setBusy("");
+    setMessage(`Customer PO ${data.customer_po_number} dicatat. Sales Order ${data.sales_order_number} dibuat.`);
     await load();
   }
 
   async function createDelivery(r: Rfq) {
-    const p = po[r.item_id];
-    if (!p) return;
-    setBusy(r.item_id);
+    const so = salesOrders[r.id];
+    if (!so) return;
+    setBusy(r.id);
     setMessage("");
     const s = createBrowserClient();
     const { data, error } = await s.rpc("create_delivery_from_po_atomic", {
-      p_po_id: p.id,
+      p_po_id: so.id,
     });
-    setBusy("");
     if (error) {
+      setBusy("");
       setMessage(error.message);
       return;
     }
-    setDelivery(d => ({ ...d, [r.item_id]: data }));
-    setMessage(`Delivery ${data.delivery_number} completed.`);
+    setBusy("");
+    setMessage(`Delivery ${data.delivery_number} selesai.`);
     await load();
   }
 
-  if (!["admin", "sales", "procurement"].includes(role) && !message) {
+  if (!["admin", "sales"].includes(role) && !message) {
     return <main className="shell"><section className="card"><p>Loading workspace…</p></section></main>;
   }
 
@@ -167,9 +228,9 @@ export default function WorkspacePage() {
       <section className="card">
         <div className="split">
           <div>
-            <span className="eyebrow">INTERNAL COMMERCIAL WORKSPACE</span>
-            <h1>RFQ → Quotation → PO → Delivery</h1>
-            <p className="muted">Role: {role || "authorized user"}. Internal workflow only.</p>
+            <span className="eyebrow">INTERNAL SALES WORKSPACE</span>
+            <h1>RFQ → Quotation → Customer PO → Sales Order → Delivery</h1>
+            <p className="muted">Role: {role || "authorized user"}. Sales workflow only.</p>
           </div>
           <button className="button" onClick={load}>Refresh</button>
         </div>
@@ -178,19 +239,17 @@ export default function WorkspacePage() {
 
         <div className="parts">
           {rfqs.map(r => {
-            const q = quote[r.item_id];
-            const p = po[r.item_id];
-            const d = delivery[r.item_id];
+            const q = quotes[r.id];
+            const so = salesOrders[r.id];
+            const d = deliveries[r.id];
+            const legacy = so && !so.customer_po_number;
+
             return (
               <article className="part" key={r.item_id}>
-                <div className="split">
-                  <div>
-                    <strong>{r.rfq_number}</strong>
-                    <span>{r.customer_name} · {r.contact_name} · {r.city}</span>
-                    <span>{r.part_number} — {r.description || "No description"} · Qty {r.quantity}</span>
-                    <span>Status: {r.status}</span>
-                  </div>
-                </div>
+                <strong>{r.rfq_number}</strong>
+                <span>{r.customer_name} · {r.contact_name} · {r.city}</span>
+                <span>{r.part_number} — {r.description || "No description"} · Qty {r.quantity}</span>
+                <span>Status RFQ: {r.status}</span>
 
                 {r.status === "OPEN" && !q && (
                   <div className="actions">
@@ -208,23 +267,45 @@ export default function WorkspacePage() {
                   </div>
                 )}
 
-                {q && <span>Quotation: <strong>{q.quotation_number}</strong></span>}
+                {q && (
+                  <>
+                    <span>Quotation: <strong>{q.quotation_number}</strong> — {q.status}</span>
+                    {q.status === "DRAFT" && (
+                      <span className="muted">Quotation draft dibuat. Tahap berikutnya: kirim quotation ke customer dan tunggu Customer PO.</span>
+                    )}
+                  </>
+                )}
 
-                {q && !p && (
-                  <button className="button primary" disabled={busy === r.item_id} onClick={() => createPo(r)}>
-                    Create PO
+                {q?.status === "ISSUED" && !so && (
+                  <div className="actions">
+                    <input
+                      aria-label={`Customer PO number for ${r.rfq_number}`}
+                      type="text"
+                      placeholder="Nomor PO Customer"
+                      value={customerPo[r.id] || ""}
+                      onChange={e => setCustomerPo(v => ({ ...v, [r.id]: e.target.value }))}
+                    />
+                    <button className="button primary" disabled={busy === r.id} onClick={() => createSalesOrder(r)}>
+                      {busy === r.id ? "Working…" : "Record Customer PO → Create Sales Order"}
+                    </button>
+                  </div>
+                )}
+
+                {so && (
+                  <>
+                    <span>Customer PO: <strong>{so.customer_po_number || "LEGACY TEST — no customer PO recorded"}</strong></span>
+                    <span>Sales Order: <strong>{so.sales_order_number}</strong> — {so.status}</span>
+                    {legacy && <span className="muted">This record belongs to the previous technical workflow test. It is not evidence of a real customer PO.</span>}
+                  </>
+                )}
+
+                {so && !legacy && !d && (
+                  <button className="button primary" disabled={busy === r.id} onClick={() => createDelivery(r)}>
+                    {busy === r.id ? "Working…" : "Create / Complete Delivery"}
                   </button>
                 )}
 
-                {p && <span>PO: <strong>{p.po_number}</strong></span>}
-
-                {p && !d && (
-                  <button className="button primary" disabled={busy === r.item_id} onClick={() => createDelivery(r)}>
-                    Complete Delivery
-                  </button>
-                )}
-
-                {d && <span>Delivery: <strong>{d.delivery_number}</strong> — DELIVERED</span>}
+                {d && <span>Delivery: <strong>{d.delivery_number}</strong> — {d.status}</span>}
               </article>
             );
           })}
