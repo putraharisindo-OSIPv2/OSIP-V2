@@ -1,15 +1,22 @@
 # OSIP V2 — Release Runbook
 
 ## Purpose
-Close the remaining external verification gates without changing the already-verified application architecture.
+Close the remaining external verification gates and record the production release evidence without changing the verified application architecture.
 
 ## Current release state
-**RELEASE CANDIDATE READY — EXTERNAL VERIFICATION PENDING**
+**RELEASE READY — FREE-PLAN SECURITY LIMITATION DOCUMENTED**
 
-Latest verified repository commit:
-`30d6819d5bfc3c6c8bff0fa1688528f899a2b603`
+Production repository:
+`putraharisindo-OSIPv2/OSIP-V2`
+
+Current application commit before this documentation update:
+`3b83bd5d2991ab2c7cbe06300d84c1e18b476131`
+
+Production application:
+`https://osip-v2.vercel.app`
 
 ## Gate A — GitHub Actions
+
 Workflow:
 `.github/workflows/ci.yml`
 
@@ -19,55 +26,95 @@ Expected job:
 - `npm install`
 - `npm run build`
 
-The workflow is configured for pushes to `main` and pull requests. The available GitHub connector cannot currently provide a push-triggered run for the release commit, so a PASS must only be recorded after GitHub itself shows a successful run.
+**External evidence: PASS**
+
+GitHub Actions run #19 for commit `3b83bd5d2991ab2c7cbe06300d84c1e18b476131` completed successfully on 2026-10-01.
 
 ## Gate B — Browser production E2E
-Execute against the deployed production URL:
 
-### Customer path
+**External evidence: PASS**
+
+### Customer path verified
+Production browser test completed:
+
 1. Open Parts.
-2. Search for a real part.
+2. Search real part `60327523`.
 3. Open the part.
-4. Click RFQ.
-5. Submit company, contact name, WhatsApp, city, industry, quantity.
-6. Confirm successful RFQ response.
-7. Confirm WhatsApp handoff is generated.
-8. Verify the RFQ appears in the internal RFQ workspace.
+4. Click Request Quote.
+5. Submit customer/company/contact/WhatsApp/city/industry/quantity.
+6. RFQ created successfully.
+7. WhatsApp handoff available.
+8. RFQ visible in internal workspace.
 
-### Internal commercial path
-1. Open the RFQ workspace as an authorized internal user.
-2. Confirm customer/contact and requested part are visible.
-3. Create a draft quotation.
-4. Create PO from the quotation.
-5. Create delivery from the PO.
-6. Confirm quotation becomes ISSUED.
-7. Confirm PO becomes COMPLETED after delivery.
-8. Confirm delivery becomes DELIVERED.
-9. Confirm operational revenue is represented by delivered quantity × unit price.
+Verified clean RFQ:
+`RFQ-20261001045422525-4C83DF89`
 
-Do not mark this gate PASS from code inspection alone.
+### Internal commercial path verified
 
-## Gate C — Supabase Auth hardening
-Supabase Security Advisor currently reports:
-- `auth_leaked_password_protection` = WARN
+Correct sales workflow:
 
-Enable leaked-password protection in the Supabase Auth password-security settings, then rerun Security Advisor.
+**Customer RFQ → OSCARPART Quotation → Customer PO → OSCARPART Sales Order → Delivery**
 
-This setting is dashboard/project configuration rather than application schema code.
+Verified:
+
+- Quotation: `QUO-20261001045614860-86B34F1B` — `ISSUED`
+- Customer PO: `CPO-OSCAR-TEST-001` — simulated test customer PO
+- Sales Order: `SO-20261001095157870-1C033FC4` — `COMPLETED`
+- Delivery: `DEL-20261001095239260-441313E6` — `DELIVERED`
+- Operational delivered sales value: IDR 1,000,000 for the test quantity and unit price.
+
+The customer PO was explicitly entered as a customer-provided document number. OSCARPART did not generate a customer PO.
+
+**Important evidence qualification:** this was a controlled technical E2E test. The simulated customer PO and IDR 1,000,000 delivered sales value are workflow evidence, not evidence of cash received from a real customer.
+
+A legacy technical test record remains visible and is explicitly labeled in the workspace as not being evidence of a real customer PO.
+
+## Gate C — Supabase Auth and database security hardening
+
+**External evidence: PASS WITH FREE-PLAN LIMITATION**
+
+Completed hardening:
+
+- `private.role_permissions` RLS enabled.
+- Direct client access to `private.role_permissions` denied by policy.
+- Production commercial workflow remained functional after the RLS change.
+- Temporary `osip-auth-admin-repair` Edge Function deleted after successful Auth repair.
+- Temporary `osip_auth_admin` custom secret removed; Supabase reports no custom secrets.
+- Supabase Security Advisor now reports **0 errors, 1 warning, 0 info**.
+
+Remaining warning:
+`auth_leaked_password_protection`
+
+Supabase documents that leaked-password protection is available on the Pro Plan and above. The production project is on the Free Plan, so this control cannot be enabled on the current plan.
+
+This is a documented platform-plan limitation, not an unresolved application/schema defect.
 
 ## Already verified
-- 20 public tables.
+
+- 20 public application tables.
 - RLS enabled across the exposed application tables.
 - 4 commercial atomic RPCs exist and are SECURITY INVOKER.
 - Anonymous direct execution of `create_rfq_atomic` is denied.
 - Authenticated execution is allowed.
 - `revenue_view` is not selectable by authenticated clients.
-- Database RFQ → quotation → PO → delivery → revenue runtime test passed and was rolled back.
+- Database RFQ → quotation → customer PO → sales order → delivery runtime test passed.
 - Public RFQ Edge Function `osip-public-rfq-v2` is ACTIVE with JWT verification intentionally disabled because it is the public acquisition boundary.
+- Verified SANY SKT80S release parts are seeded in production, including PNs `60327523`, `160102130003A089`, `61019554`, `160604020018`, and `160102130003A110`.
 
 ## Performance note
-Security Advisor has one WARN for leaked-password protection.
-Performance Advisor reports 19 unused-index INFO findings. Do not remove these indexes merely to make the advisor green; workload evidence and query plans should drive index cleanup.
+
+Performance Advisor may report unused-index INFO findings. Do not remove indexes merely to make the advisor green; workload evidence and query plans should drive index cleanup.
 
 ## Release rule
-Do not label OSIP V2 FINAL RELEASE until Gates A, B and C have external evidence. No additional feature development is required to close these gates.
+
+Gates A and B have external evidence.
+
+Gate C has external evidence of database/RLS hardening and zero security errors, with one Free-Plan-only Auth warning that cannot be enabled on the current plan.
+
+No additional feature development is required for operational release.
+
+**Release decision recorded by this runbook: OSIP V2 is RELEASE READY with the documented Free-Plan security limitation.**
+
+Future hardening item:
+- Enable leaked-password protection if/when the project moves to a Supabase plan that provides the feature.
+
